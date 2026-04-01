@@ -161,6 +161,109 @@ func TestCreateCircleAndJoin(t *testing.T) {
 	}
 }
 
+func TestGeofenceCRUD(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	owner, err := s.CreateUser(ctx, uniqueEmail("geo-owner"), "Geo Owner", "hash")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	circle, err := s.CreateCircle(ctx, "Geo Circle", owner.ID)
+	if err != nil {
+		t.Fatalf("CreateCircle: %v", err)
+	}
+
+	// Create a geofence centered on Times Square, NYC
+	lat, lng := 40.7580, -73.9855
+	radius := float32(100.0) // 100 meters
+
+	gf, err := s.CreateGeofence(ctx, circle.ID, "Times Square", lat, lng, radius, owner.ID)
+	if err != nil {
+		t.Fatalf("CreateGeofence: %v", err)
+	}
+	if gf.ID == uuid.Nil {
+		t.Error("expected non-nil geofence ID")
+	}
+	if gf.Name != "Times Square" {
+		t.Errorf("expected name 'Times Square', got %q", gf.Name)
+	}
+	if gf.CircleID != circle.ID {
+		t.Errorf("expected circle_id %v, got %v", circle.ID, gf.CircleID)
+	}
+	// Allow small floating point tolerance
+	if diff := gf.Lat - lat; diff > 0.0001 || diff < -0.0001 {
+		t.Errorf("expected lat ~%v, got %v", lat, gf.Lat)
+	}
+	if diff := gf.Lng - lng; diff > 0.0001 || diff < -0.0001 {
+		t.Errorf("expected lng ~%v, got %v", lng, gf.Lng)
+	}
+	if gf.RadiusMeters != radius {
+		t.Errorf("expected radius %v, got %v", radius, gf.RadiusMeters)
+	}
+
+	// List geofences
+	list, err := s.GetGeofences(ctx, circle.ID)
+	if err != nil {
+		t.Fatalf("GetGeofences: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 geofence, got %d", len(list))
+	}
+	if list[0].ID != gf.ID {
+		t.Errorf("GetGeofences: wrong ID returned")
+	}
+
+	// Update geofence
+	newLat, newLng := 40.7589, -73.9851
+	newRadius := float32(200.0)
+	updated, err := s.UpdateGeofence(ctx, gf.ID, "Times Square Updated", newLat, newLng, newRadius)
+	if err != nil {
+		t.Fatalf("UpdateGeofence: %v", err)
+	}
+	if updated.Name != "Times Square Updated" {
+		t.Errorf("expected updated name, got %q", updated.Name)
+	}
+	if updated.RadiusMeters != newRadius {
+		t.Errorf("expected updated radius %v, got %v", newRadius, updated.RadiusMeters)
+	}
+
+	// FindContainingGeofences — point inside (same center, radius is 200m)
+	inside, err := s.FindContainingGeofences(ctx, circle.ID, newLat, newLng)
+	if err != nil {
+		t.Fatalf("FindContainingGeofences (inside): %v", err)
+	}
+	if len(inside) != 1 {
+		t.Fatalf("expected 1 containing geofence for inside point, got %d", len(inside))
+	}
+	if inside[0] != gf.ID {
+		t.Errorf("FindContainingGeofences: wrong geofence returned")
+	}
+
+	// FindContainingGeofences — point far outside (Los Angeles)
+	outside, err := s.FindContainingGeofences(ctx, circle.ID, 34.0522, -118.2437)
+	if err != nil {
+		t.Fatalf("FindContainingGeofences (outside): %v", err)
+	}
+	if len(outside) != 0 {
+		t.Errorf("expected 0 containing geofences for outside point, got %d", len(outside))
+	}
+
+	// Delete geofence
+	if err := s.DeleteGeofence(ctx, gf.ID); err != nil {
+		t.Fatalf("DeleteGeofence: %v", err)
+	}
+
+	// Verify deleted
+	list, err = s.GetGeofences(ctx, circle.ID)
+	if err != nil {
+		t.Fatalf("GetGeofences after delete: %v", err)
+	}
+	if len(list) != 0 {
+		t.Errorf("expected 0 geofences after delete, got %d", len(list))
+	}
+}
+
 func TestInsertAndQueryLocations(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
