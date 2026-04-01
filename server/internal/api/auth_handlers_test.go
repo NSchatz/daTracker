@@ -15,19 +15,12 @@ import (
 )
 
 type mockStore struct {
-	users   map[string]*model.User
-	circles map[string]*model.Circle
-	members []struct {
-		circleID uuid.UUID
-		userID   uuid.UUID
-		role     string
-	}
+	users map[string]*model.User
 }
 
 func newMockStore() *mockStore {
 	return &mockStore{
-		users:   make(map[string]*model.User),
-		circles: make(map[string]*model.Circle),
+		users: make(map[string]*model.User),
 	}
 }
 
@@ -51,23 +44,6 @@ func (m *mockStore) GetUserByEmail(_ context.Context, email string) (*model.User
 	return u, nil
 }
 
-func (m *mockStore) GetCircleByInviteCode(_ context.Context, code string) (*model.Circle, error) {
-	c, ok := m.circles[code]
-	if !ok {
-		return nil, &notFoundError{code}
-	}
-	return c, nil
-}
-
-func (m *mockStore) AddMember(_ context.Context, circleID, userID uuid.UUID, role string) error {
-	m.members = append(m.members, struct {
-		circleID uuid.UUID
-		userID   uuid.UUID
-		role     string
-	}{circleID, userID, role})
-	return nil
-}
-
 type notFoundError struct{ key string }
 
 func (e *notFoundError) Error() string { return "not found: " + e.key }
@@ -77,16 +53,18 @@ func TestRegisterAndLogin(t *testing.T) {
 
 	// Pre-create a circle with invite code "abc123"
 	circleID := uuid.New()
-	store.circles["abc123"] = &model.Circle{
+	circleStore := newMockCircleStore()
+	circleStore.circles["abc123"] = &model.Circle{
 		ID:         circleID,
 		Name:       "Test Circle",
 		InviteCode: "abc123",
 		CreatedBy:  uuid.New(),
 		CreatedAt:  time.Now(),
 	}
+	circleStore.byID[circleID] = circleStore.circles["abc123"]
 
 	a := auth.New("test-secret")
-	srv := NewServer(a, store, nil)
+	srv := NewServer(a, store, circleStore, nil, nil)
 
 	// Register
 	regBody, _ := json.Marshal(map[string]string{
@@ -121,11 +99,11 @@ func TestRegisterAndLogin(t *testing.T) {
 		t.Fatalf("register: expected display_name Alice, got %s", regResp.User.DisplayName)
 	}
 
-	// Verify member was added to circle
-	if len(store.members) != 1 {
-		t.Fatalf("register: expected 1 circle member, got %d", len(store.members))
+	// Verify member was added to circle (now tracked in circleStore)
+	if len(circleStore.members) != 1 {
+		t.Fatalf("register: expected 1 circle member, got %d", len(circleStore.members))
 	}
-	if store.members[0].circleID != circleID {
+	if circleStore.members[0].CircleID != circleID {
 		t.Fatal("register: member added to wrong circle")
 	}
 

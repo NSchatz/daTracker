@@ -15,6 +15,12 @@ import (
 type AuthStore interface {
 	CreateUser(ctx context.Context, email, displayName, passwordHash string) (*model.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+}
+
+type CircleStore interface {
+	CreateCircle(ctx context.Context, name string, createdBy uuid.UUID) (*model.Circle, error)
+	GetUserCircles(ctx context.Context, userID uuid.UUID) ([]model.Circle, error)
+	GetMembers(ctx context.Context, circleID uuid.UUID) ([]model.CircleMember, error)
 	GetCircleByInviteCode(ctx context.Context, code string) (*model.Circle, error)
 	AddMember(ctx context.Context, circleID, userID uuid.UUID, role string) error
 }
@@ -25,19 +31,30 @@ type LocationStore interface {
 	GetHistory(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]model.Location, error)
 }
 
+type GeofenceStore interface {
+	CreateGeofence(ctx context.Context, circleID uuid.UUID, name string, lat, lng float64, radiusMeters float32, createdBy uuid.UUID) (*model.Geofence, error)
+	GetGeofences(ctx context.Context, circleID uuid.UUID) ([]model.Geofence, error)
+	UpdateGeofence(ctx context.Context, id uuid.UUID, name string, lat, lng float64, radiusMeters float32) (*model.Geofence, error)
+	DeleteGeofence(ctx context.Context, id uuid.UUID) error
+}
+
 type Server struct {
 	router    chi.Router
 	auth      *auth.Auth
 	store     AuthStore
+	circles   CircleStore
 	locations LocationStore
+	geofences GeofenceStore
 }
 
-func NewServer(a *auth.Auth, store AuthStore, locations LocationStore) *Server {
+func NewServer(a *auth.Auth, store AuthStore, circles CircleStore, locations LocationStore, geofences GeofenceStore) *Server {
 	s := &Server{
 		router:    chi.NewRouter(),
 		auth:      a,
 		store:     store,
+		circles:   circles,
 		locations: locations,
+		geofences: geofences,
 	}
 
 	s.router.Use(middleware.Logger)
@@ -55,6 +72,16 @@ func NewServer(a *auth.Auth, store AuthStore, locations LocationStore) *Server {
 		r.Post("/locations", s.handlePostLocations)
 		r.Get("/locations/latest", s.handleGetLatestLocations)
 		r.Get("/locations/history", s.handleGetHistory)
+
+		r.Post("/circles", s.handleCreateCircle)
+		r.Post("/circles/{id}/join", s.handleJoinCircle)
+		r.Get("/circles/{id}/members", s.handleGetMembers)
+		r.Get("/circles", s.handleGetUserCircles)
+
+		r.Post("/geofences", s.handleCreateGeofence)
+		r.Get("/geofences", s.handleGetGeofences)
+		r.Put("/geofences/{id}", s.handleUpdateGeofence)
+		r.Delete("/geofences/{id}", s.handleDeleteGeofence)
 	})
 
 	return s

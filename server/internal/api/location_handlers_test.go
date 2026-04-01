@@ -38,7 +38,7 @@ func TestPostLocations(t *testing.T) {
 	authStore := newMockStore()
 	locStore := &mockLocationStore{}
 
-	srv := NewServer(authSvc, authStore, locStore)
+	srv := NewServer(authSvc, authStore, nil, locStore, nil)
 
 	// Create a user and issue a token
 	userID := uuid.New()
@@ -86,7 +86,7 @@ func TestPostLocations_Unauthenticated(t *testing.T) {
 	authStore := newMockStore()
 	locStore := &mockLocationStore{}
 
-	srv := NewServer(authSvc, authStore, locStore)
+	srv := NewServer(authSvc, authStore, nil, locStore, nil)
 
 	body, _ := json.Marshal(map[string]any{
 		"locations": []model.LocationInput{{Lat: 1.0, Lng: 1.0, RecordedAt: time.Now()}},
@@ -109,7 +109,7 @@ func TestGetLatestLocations(t *testing.T) {
 	authStore := newMockStore()
 	locStore := &mockLocationStore{}
 
-	srv := NewServer(authSvc, authStore, locStore)
+	srv := NewServer(authSvc, authStore, nil, locStore, nil)
 
 	userID := uuid.New()
 	token, err := authSvc.IssueToken(userID)
@@ -134,7 +134,7 @@ func TestGetHistory(t *testing.T) {
 	authStore := newMockStore()
 	locStore := &mockLocationStore{}
 
-	srv := NewServer(authSvc, authStore, locStore)
+	srv := NewServer(authSvc, authStore, nil, locStore, nil)
 
 	userID := uuid.New()
 	token, err := authSvc.IssueToken(userID)

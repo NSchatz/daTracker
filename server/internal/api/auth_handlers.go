@@ -42,7 +42,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	circle, err := s.store.GetCircleByInviteCode(r.Context(), req.InviteCode)
+	circle, err := s.circles.GetCircleByInviteCode(r.Context(), req.InviteCode)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid invite code")
 		return
@@ -60,7 +60,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.store.AddMember(r.Context(), circle.ID, user.ID, "member"); err != nil {
+	if err := s.circles.AddMember(r.Context(), circle.ID, user.ID, "member"); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not add user to circle")
 		return
 	}
