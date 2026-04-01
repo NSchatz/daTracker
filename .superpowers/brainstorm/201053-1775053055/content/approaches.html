@@ -1,0 +1,102 @@
+<h2>Architecture Approaches</h2>
+<p class="subtitle">Three options for the backend stack powering your location tracker</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)" style="border-left: 3px solid #4ade80;">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Go + PostgreSQL/PostGIS + WebSockets</h3>
+      <p><span class="label" style="color:#4ade80;">RECOMMENDED</span></p>
+      <p>Lightweight Go backend with PostGIS for geospatial queries, WebSockets for real-time location push, and FCM for background notifications.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Go compiles to a single binary &mdash; tiny Docker image, runs on a Pi</li>
+            <li>PostGIS handles geofence math (point-in-polygon) natively</li>
+            <li>WebSockets give instant map updates with minimal overhead</li>
+            <li>Low memory footprint (~20-50MB for this scale)</li>
+            <li>Excellent concurrency model for real-time connections</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>More verbose than Python/Node for CRUD operations</li>
+            <li>PostGIS adds complexity vs plain Postgres</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Node.js (Fastify) + PostgreSQL/PostGIS + Socket.io</h3>
+      <p>JavaScript/TypeScript backend with the same PostGIS foundation, using Socket.io for real-time.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Large ecosystem, easy to find libraries</li>
+            <li>Socket.io handles reconnection/fallback automatically</li>
+            <li>TypeScript provides good type safety</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Higher memory baseline (~80-150MB with Node)</li>
+            <li>node_modules adds Docker image bloat</li>
+            <li>Single-threaded &mdash; less natural for concurrent connections</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Rust (Axum) + PostgreSQL/PostGIS + WebSockets</h3>
+      <p>Maximum performance and safety with Rust. Same PostGIS + WebSocket architecture as Option A.</p>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Lowest resource usage of all options</li>
+            <li>Memory safety guarantees</li>
+            <li>Excellent WebSocket performance</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Significantly slower development speed</li>
+            <li>Steeper learning curve, harder to maintain</li>
+            <li>Compile times slow down iteration</li>
+            <li>Overkill for 2-10 users</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 2rem; padding: 1.2rem; background: rgba(74,222,128,0.08); border-radius: 8px; border: 1px solid rgba(74,222,128,0.2);">
+  <h3 style="margin-top:0;">Why I recommend Go (Option A)</h3>
+  <p>For a self-hosted location tracker serving 2-10 users, Go hits the sweet spot: it's resource-efficient enough to run on minimal hardware, has excellent stdlib support for HTTP/WebSockets, and the single-binary deployment makes Docker images tiny. PostGIS is the common thread across all options &mdash; it's the right tool for geospatial work regardless of language. The verbosity tradeoff is minor given the app's scope.</p>
+</div>
+
+<div class="section" style="margin-top: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: 8px;">
+  <h3 style="margin-top:0;">Shared across all approaches</h3>
+  <ul>
+    <li><strong>Database:</strong> PostgreSQL + PostGIS (geofence calculations, location history with spatial indexing)</li>
+    <li><strong>Push notifications:</strong> Firebase Cloud Messaging (FCM) for geofence alerts when app is backgrounded</li>
+    <li><strong>Maps:</strong> OpenStreetMap tiles (free, self-hostable) via the Android app's map SDK</li>
+    <li><strong>Auth:</strong> Simple JWT-based with invite tokens for new members</li>
+    <li><strong>Deployment:</strong> Docker Compose (app server + PostgreSQL/PostGIS)</li>
+    <li><strong>Mobile:</strong> Native Kotlin with Google's Fused Location Provider for adaptive tracking</li>
+  </ul>
+</div>
