@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Tracker</string>
+    <string name="nav_map">Map</string>
+    <string name="nav_history">History</string>
+    <string name="nav_places">Places</string>
+    <string name="nav_circle">Circle</string>
+    <string name="nav_profile">Profile</string>
+</resources>
