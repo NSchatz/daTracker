@@ -34,6 +34,17 @@ class SessionManager(context: Context) {
         get() = prefs.getString(KEY_SERVER_URL, BuildConfig.API_BASE_URL) ?: BuildConfig.API_BASE_URL
         set(value) = prefs.edit().putString(KEY_SERVER_URL, value).apply()
 
+    var ntfyUrl: String
+        get() {
+            val custom = prefs.getString("ntfy_url", null)
+            if (custom != null) return custom
+            val base = serverUrl.replace(Regex(":\\d+$"), "")
+            return "$base:8090"
+        }
+        set(value) = prefs.edit().putString("ntfy_url", value).apply()
+
+    val ntfyTopic: String get() = "tracker-$userId"
+
     val isLoggedIn: Boolean
         get() = token != null && userId != null
 

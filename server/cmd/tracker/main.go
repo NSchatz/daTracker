@@ -25,7 +25,7 @@ func main() {
 	port := envOrDefault("PORT", "8080")
 	dbURL := requireEnv("DATABASE_URL")
 	jwtSecret := requireEnv("JWT_SECRET")
-	fcmCreds := os.Getenv("FCM_CREDENTIALS_FILE")
+	ntfyURL := envOrDefault("NTFY_URL", "http://ntfy:80")
 	retentionDays := envIntOrDefault("LOCATION_RETENTION_DAYS", 30)
 
 	db, err := store.New(ctx, dbURL)
@@ -39,20 +39,21 @@ func main() {
 	go hub.Run()
 
 	var sender notify.Sender
-	if fcmCreds != "" {
-		s, err := notify.NewFCMSender(ctx, fcmCreds)
+	if ntfyURL != "" {
+		s, err := notify.NewNtfySender(ntfyURL)
 		if err != nil {
-			log.Fatalf("fcm: %v", err)
+			log.Fatalf("ntfy: %v", err)
 		}
 		sender = s
+		log.Printf("ntfy sender configured: %s", ntfyURL)
 	} else {
-		log.Println("WARNING: FCM_CREDENTIALS_FILE not set, using noop sender")
+		log.Println("WARNING: NTFY_URL not set, using noop sender")
 		sender = notify.NoopSender{}
 	}
 	notifier := notify.NewNotifier(sender)
 	geoTracker := geo.NewTracker()
 
-	srv := api.NewServer(a, db, db, db, db, hub, geoTracker, notifier, db, db)
+	srv := api.NewServer(a, db, db, db, db, hub, geoTracker, notifier, db)
 
 	go runRetention(ctx, db, retentionDays)
 
