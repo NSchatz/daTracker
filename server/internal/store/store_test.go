@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/nschatz/tracker/server/internal/model"
 	"github.com/nschatz/tracker/server/internal/store"
 )
 
@@ -26,7 +28,7 @@ func testStore(t *testing.T) *store.Store {
 }
 
 func uniqueEmail(prefix string) string {
-	return fmt.Sprintf("%s+%d@example.com", prefix, time.Now().UnixNano())
+	return fmt.Sprintf("%s+%s@example.com", prefix, uuid.New().String())
 }
 
 func TestCreateAndGetUser(t *testing.T) {
@@ -156,5 +158,93 @@ func TestCreateCircleAndJoin(t *testing.T) {
 	}
 	if circles[0].ID != circle.ID {
 		t.Errorf("GetUserCircles: wrong circle returned")
+	}
+}
+
+func TestInsertAndQueryLocations(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+
+	// Create owner and circle
+	owner, err := s.CreateUser(ctx, uniqueEmail("loc-owner"), "Loc Owner", "hash")
+	if err != nil {
+		t.Fatalf("CreateUser (owner): %v", err)
+	}
+	circle, err := s.CreateCircle(ctx, "Loc Circle", owner.ID)
+	if err != nil {
+		t.Fatalf("CreateCircle: %v", err)
+	}
+
+	// Create a member and add them to the circle
+	member, err := s.CreateUser(ctx, uniqueEmail("loc-member"), "Loc Member", "hash")
+	if err != nil {
+		t.Fatalf("CreateUser (member): %v", err)
+	}
+	if err := s.AddMember(ctx, circle.ID, member.ID, "member"); err != nil {
+		t.Fatalf("AddMember: %v", err)
+	}
+
+	// Insert 3 location points at different times
+	now := time.Now().UTC().Truncate(time.Second)
+	speed := float32(5.0)
+	battery := int16(80)
+	accuracy := float32(10.0)
+
+	locs := []model.LocationInput{
+		{Lat: 40.7128, Lng: -74.0060, Speed: &speed, BatteryLevel: &battery, Accuracy: &accuracy, RecordedAt: now.Add(-2 * time.Minute)},
+		{Lat: 40.7130, Lng: -74.0058, RecordedAt: now.Add(-1 * time.Minute)},
+		{Lat: 40.7135, Lng: -74.0055, RecordedAt: now},
+	}
+
+	if err := s.InsertLocations(ctx, member.ID, locs); err != nil {
+		t.Fatalf("InsertLocations: %v", err)
+	}
+
+	// GetLatestLocations should return newest point for the member
+	latest, err := s.GetLatestLocations(ctx, circle.ID)
+	if err != nil {
+		t.Fatalf("GetLatestLocations: %v", err)
+	}
+
+	// Find the member's entry in results
+	var memberLoc *model.Location
+	for i := range latest {
+		if latest[i].UserID == member.ID {
+			memberLoc = &latest[i]
+			break
+		}
+	}
+	if memberLoc == nil {
+		t.Fatal("GetLatestLocations: member not found in results")
+	}
+
+	// Should be the newest point (index 2)
+	if !memberLoc.RecordedAt.Equal(now) {
+		t.Errorf("GetLatestLocations: expected newest point at %v, got %v", now, memberLoc.RecordedAt)
+	}
+	if memberLoc.UserID != member.ID {
+		t.Errorf("GetLatestLocations: wrong user_id: got %v, want %v", memberLoc.UserID, member.ID)
+	}
+
+	// GetHistory should return all 3 points
+	history, err := s.GetHistory(ctx, member.ID, now.Add(-10*time.Minute), now.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("GetHistory: %v", err)
+	}
+	if len(history) != 3 {
+		t.Fatalf("GetHistory: expected 3 points, got %d", len(history))
+	}
+	// Verify ordered ASC
+	if !history[0].RecordedAt.Before(history[1].RecordedAt) {
+		t.Errorf("GetHistory: expected ascending order, got %v then %v", history[0].RecordedAt, history[1].RecordedAt)
+	}
+	if !history[1].RecordedAt.Before(history[2].RecordedAt) {
+		t.Errorf("GetHistory: expected ascending order, got %v then %v", history[1].RecordedAt, history[2].RecordedAt)
+	}
+	// Verify all belong to the member
+	for _, h := range history {
+		if h.UserID != member.ID {
+			t.Errorf("GetHistory: unexpected user_id %v", h.UserID)
+		}
 	}
 }
