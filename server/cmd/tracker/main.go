@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	tracker "github.com/nschatz/tracker/server"
 	"github.com/nschatz/tracker/server/internal/api"
 	"github.com/nschatz/tracker/server/internal/auth"
 	"github.com/nschatz/tracker/server/internal/geo"
@@ -53,7 +54,7 @@ func main() {
 	notifier := notify.NewNotifier(sender)
 	geoTracker := geo.NewTracker()
 
-	srv := api.NewServer(a, db, db, db, db, hub, geoTracker, notifier, db)
+	srv := api.NewServer(a, db, db, db, db, hub, geoTracker, notifier, db, tracker.WebFS())
 
 	go runRetention(ctx, db, retentionDays)
 
