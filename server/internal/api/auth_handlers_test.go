@@ -44,6 +44,15 @@ func (m *mockStore) GetUserByEmail(_ context.Context, email string) (*model.User
 	return u, nil
 }
 
+func (m *mockStore) GetUserByID(_ context.Context, id uuid.UUID) (*model.User, error) {
+	for _, u := range m.users {
+		if u.ID == id {
+			return u, nil
+		}
+	}
+	return nil, &notFoundError{id.String()}
+}
+
 type notFoundError struct{ key string }
 
 func (e *notFoundError) Error() string { return "not found: " + e.key }
@@ -64,7 +73,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	circleStore.byID[circleID] = circleStore.circles["abc123"]
 
 	a := auth.New("test-secret")
-	srv := NewServer(a, store, circleStore, nil, nil)
+	srv := NewServer(a, store, circleStore, nil, nil, nil, nil, nil, nil, nil)
 
 	// Register
 	regBody, _ := json.Marshal(map[string]string{

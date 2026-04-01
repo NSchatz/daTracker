@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -36,7 +38,103 @@ func (s *Server) handlePostLocations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get the latest point from the batch for broadcast and geofence eval
+	latest := req.Locations[len(req.Locations)-1]
+	loc := model.Location{
+		UserID:       userID,
+		Lat:          latest.Lat,
+		Lng:          latest.Lng,
+		Speed:        latest.Speed,
+		BatteryLevel: latest.BatteryLevel,
+		Accuracy:     latest.Accuracy,
+		RecordedAt:   latest.RecordedAt,
+	}
+
+	// Run broadcast and geofence evaluation in a goroutine so it doesn't block the response
+	go s.processLocationUpdate(userID, loc)
+
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// processLocationUpdate broadcasts the location and evaluates geofences.
+// Uses a detached context since the request context will be cancelled.
+func (s *Server) processLocationUpdate(userID uuid.UUID, loc model.Location) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if s.circles == nil {
+		return
+	}
+
+	// Get user's circles
+	circles, err := s.circles.GetUserCircles(ctx, userID)
+	if err != nil {
+		log.Printf("processLocationUpdate: get circles for user %s: %v", userID, err)
+		return
+	}
+
+	for _, circle := range circles {
+		// Broadcast location via WebSocket
+		if s.hub != nil {
+			s.hub.BroadcastLocation(circle.ID, loc)
+		}
+
+		// Evaluate geofences
+		if s.geoEval == nil || s.geoTracker == nil || s.notifier == nil {
+			continue
+		}
+
+		containingIDs, err := s.geoEval.FindContainingGeofences(ctx, circle.ID, loc.Lat, loc.Lng)
+		if err != nil {
+			log.Printf("processLocationUpdate: find geofences for circle %s: %v", circle.ID, err)
+			continue
+		}
+
+		entered, left := s.geoTracker.Update(userID, containingIDs)
+		if len(entered) == 0 && len(left) == 0 {
+			continue
+		}
+
+		// Get user display name
+		user, err := s.store.GetUserByID(ctx, userID)
+		if err != nil {
+			log.Printf("processLocationUpdate: get user %s: %v", userID, err)
+			continue
+		}
+
+		// Get geofences for name lookup
+		geofences, err := s.geoEval.GetGeofences(ctx, circle.ID)
+		if err != nil {
+			log.Printf("processLocationUpdate: get geofences for circle %s: %v", circle.ID, err)
+			continue
+		}
+		geoMap := make(map[uuid.UUID]string, len(geofences))
+		for _, g := range geofences {
+			geoMap[g.ID] = g.Name
+		}
+
+		// Get FCM tokens for other members
+		if s.fcmTokens == nil {
+			continue
+		}
+		tokens, err := s.fcmTokens.GetFCMTokensForCircle(ctx, circle.ID, userID)
+		if err != nil {
+			log.Printf("processLocationUpdate: get FCM tokens for circle %s: %v", circle.ID, err)
+			continue
+		}
+		if len(tokens) == 0 {
+			continue
+		}
+
+		for _, geoID := range entered {
+			name := geoMap[geoID]
+			s.notifier.GeofenceEnter(ctx, user.DisplayName, name, tokens)
+		}
+		for _, geoID := range left {
+			name := geoMap[geoID]
+			s.notifier.GeofenceLeave(ctx, user.DisplayName, name, tokens)
+		}
+	}
 }
 
 // handleGetLatestLocations handles GET /locations/latest?circle_id=UUID
