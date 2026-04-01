@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -18,17 +19,25 @@ type AuthStore interface {
 	AddMember(ctx context.Context, circleID, userID uuid.UUID, role string) error
 }
 
-type Server struct {
-	router chi.Router
-	auth   *auth.Auth
-	store  AuthStore
+type LocationStore interface {
+	InsertLocations(ctx context.Context, userID uuid.UUID, locs []model.LocationInput) error
+	GetLatestLocations(ctx context.Context, circleID uuid.UUID) ([]model.Location, error)
+	GetHistory(ctx context.Context, userID uuid.UUID, from, to time.Time) ([]model.Location, error)
 }
 
-func NewServer(a *auth.Auth, store AuthStore) *Server {
+type Server struct {
+	router    chi.Router
+	auth      *auth.Auth
+	store     AuthStore
+	locations LocationStore
+}
+
+func NewServer(a *auth.Auth, store AuthStore, locations LocationStore) *Server {
 	s := &Server{
-		router: chi.NewRouter(),
-		auth:   a,
-		store:  store,
+		router:    chi.NewRouter(),
+		auth:      a,
+		store:     store,
+		locations: locations,
 	}
 
 	s.router.Use(middleware.Logger)
@@ -40,6 +49,13 @@ func NewServer(a *auth.Auth, store AuthStore) *Server {
 
 	s.router.Post("/auth/register", s.handleRegister)
 	s.router.Post("/auth/login", s.handleLogin)
+
+	s.router.Group(func(r chi.Router) {
+		r.Use(a.Middleware)
+		r.Post("/locations", s.handlePostLocations)
+		r.Get("/locations/latest", s.handleGetLatestLocations)
+		r.Get("/locations/history", s.handleGetHistory)
+	})
 
 	return s
 }

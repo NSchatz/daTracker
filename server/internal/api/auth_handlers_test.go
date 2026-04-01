@@ -86,7 +86,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	}
 
 	a := auth.New("test-secret")
-	srv := NewServer(a, store)
+	srv := NewServer(a, store, nil)
 
 	// Register
 	regBody, _ := json.Marshal(map[string]string{
