@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tracker</title>
+  <link rel="stylesheet" href="/lib/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <nav id="nav" class="nav" style="display:none">
+    <span class="nav-brand">Tracker</span>
+    <div class="nav-links">
+      <a class="nav-link" href="#map" data-route="map">Map</a>
+      <a class="nav-link" href="#history" data-route="history">History</a>
+      <a class="nav-link" href="#places" data-route="places">Places</a>
+      <a class="nav-link" href="#circle" data-route="circle">Circle</a>
+      <a class="nav-link" href="#profile" data-route="profile">Profile</a>
+    </div>
+  </nav>
+  <main id="content"></main>
+  <script src="/lib/leaflet/leaflet.js"></script>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

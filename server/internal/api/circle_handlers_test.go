@@ -83,7 +83,7 @@ func TestCreateCircle(t *testing.T) {
 	authStore := newMockStore()
 	circleStore := newMockCircleStore()
 
-	srv := NewServer(authSvc, authStore, circleStore, nil, nil, nil, nil, nil, nil)
+	srv := NewServer(authSvc, authStore, circleStore, nil, nil, nil, nil, nil, nil, nil)
 
 	userID := uuid.New()
 	token, err := authSvc.IssueToken(userID)

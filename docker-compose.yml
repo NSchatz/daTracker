@@ -5,8 +5,6 @@ services:
       POSTGRES_USER: tracker
       POSTGRES_PASSWORD: tracker
       POSTGRES_DB: tracker
-    ports:
-      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +17,7 @@ services:
     image: binwiederhier/ntfy
     command: serve
     ports:
-      - "8090:80"
+      - "8091:80"
     volumes:
       - ntfy-cache:/var/cache/ntfy
 

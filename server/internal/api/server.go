@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
 	"time"
 
@@ -60,7 +61,7 @@ type Server struct {
 	geoEval    GeoEvaluator
 }
 
-func NewServer(a *auth.Auth, store AuthStore, circles CircleStore, locations LocationStore, geofences GeofenceStore, hub *ws.Hub, geoTracker *geo.Tracker, notifier *notify.Notifier, geoEval GeoEvaluator) *Server {
+func NewServer(a *auth.Auth, store AuthStore, circles CircleStore, locations LocationStore, geofences GeofenceStore, hub *ws.Hub, geoTracker *geo.Tracker, notifier *notify.Notifier, geoEval GeoEvaluator, webFS fs.FS) *Server {
 	s := &Server{
 		router:     chi.NewRouter(),
 		auth:       a,
@@ -102,6 +103,10 @@ func NewServer(a *auth.Auth, store AuthStore, circles CircleStore, locations Loc
 
 		r.Get("/ws", s.handleWebSocket)
 	})
+
+	if webFS != nil {
+		s.router.NotFound(staticFileHandler(webFS).ServeHTTP)
+	}
 
 	return s
 }

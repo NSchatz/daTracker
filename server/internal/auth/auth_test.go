@@ -94,3 +94,25 @@ func TestMiddlewareNoToken(t *testing.T) {
 		t.Errorf("expected status 401, got %d", rec.Code)
 	}
 }
+
+func TestMiddlewareTokenQueryParam(t *testing.T) {
+	a := New("test-secret")
+	userID := uuid.New()
+	token, _ := a.IssueToken(userID)
+
+	handler := a.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got := UserIDFromContext(r.Context())
+		if got != userID {
+			t.Errorf("got = %v, want %v", got, userID)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/ws?token="+token, nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", rec.Code)
+	}
+}
