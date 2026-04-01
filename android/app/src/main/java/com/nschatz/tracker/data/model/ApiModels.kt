@@ -89,7 +89,3 @@ data class Geofence(
     @SerializedName("lng") val lng: Double,
     @SerializedName("radius_meters") val radiusMeters: Double
 )
-
-data class FcmTokenRequest(
-    @SerializedName("token") val token: String
-)

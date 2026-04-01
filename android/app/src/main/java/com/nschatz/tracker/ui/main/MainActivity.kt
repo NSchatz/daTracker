@@ -11,10 +11,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
-import com.google.firebase.messaging.FirebaseMessaging
 import com.nschatz.tracker.data.api.ApiClient
 import com.nschatz.tracker.R
-import com.nschatz.tracker.data.model.FcmTokenRequest
 import com.nschatz.tracker.data.prefs.SessionManager
 import com.nschatz.tracker.data.repository.CircleRepository
 import com.nschatz.tracker.databinding.ActivityMainBinding
@@ -59,7 +57,6 @@ class MainActivity : AppCompatActivity() {
         initActiveCircle()
         setupBottomNav()
         requestPermissions()
-        registerFcmToken()
 
         if (savedInstanceState == null) {
             binding.bottomNav.selectedItemId = R.id.nav_map
@@ -117,19 +114,6 @@ class MainActivity : AppCompatActivity() {
             action = LocationService.ACTION_START
         }
         ContextCompat.startForegroundService(this, intent)
-    }
-
-    private fun registerFcmToken() {
-        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            lifecycleScope.launch {
-                try {
-                    val api = ApiClient(session)
-                    api.fcm.registerToken(FcmTokenRequest(token))
-                } catch (e: Exception) {
-                    Log.w("MainActivity", "FCM token registration failed", e)
-                }
-            }
-        }
     }
 
     private fun initActiveCircle() {

@@ -53,6 +53,11 @@ class LocationService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
+    private var sseCall: okhttp3.Call? = null
+    private val sseClient = okhttp3.OkHttpClient.Builder()
+        .readTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationRepo: LocationRepository
     private lateinit var sessionManager: SessionManager
@@ -111,8 +116,10 @@ class LocationService : Service() {
                 startForeground(NOTIFICATION_ID, createNotification())
                 startLocationUpdates()
                 registerActivityTransitions()
+                startNtfyListener()
             }
             ACTION_STOP -> {
+                sseCall?.cancel()
                 fusedLocationClient.removeLocationUpdates(locationCallback)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
@@ -178,6 +185,73 @@ class LocationService : Service() {
             // Permission not granted; transitions won't be used
         }
     }
+
+    private fun startNtfyListener() {
+        val userId = sessionManager.userId ?: return
+        val ntfyUrl = sessionManager.ntfyUrl.trimEnd('/')
+        val topic = "tracker-$userId"
+        val url = "$ntfyUrl/$topic/sse"
+
+        val request = okhttp3.Request.Builder()
+            .url(url)
+            .header("Accept", "text/event-stream")
+            .build()
+
+        sseCall = sseClient.newCall(request)
+        serviceScope.launch(Dispatchers.IO) {
+            try {
+                val response = sseCall?.execute() ?: return@launch
+                val source = response.body?.source() ?: return@launch
+                val gson = com.google.gson.Gson()
+
+                while (!source.exhausted()) {
+                    val line = source.readUtf8Line() ?: continue
+                    if (!line.startsWith("data: ")) continue
+
+                    try {
+                        val json = line.removePrefix("data: ")
+                        val event = gson.fromJson(json, NtfyEvent::class.java)
+                        if (event.event == "message") {
+                            showPlaceAlert(event.title ?: "Tracker", event.message ?: "")
+                        }
+                    } catch (e: Exception) {
+                        // Skip malformed lines
+                    }
+                }
+            } catch (e: java.io.IOException) {
+                if (sseCall?.isCanceled() != true) {
+                    kotlinx.coroutines.delay(5000)
+                    startNtfyListener()
+                }
+            }
+        }
+    }
+
+    private fun showPlaceAlert(title: String, body: String) {
+        val intent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, com.nschatz.tracker.ui.main.MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, TrackerApp.CHANNEL_PLACE_ALERTS)
+            .setSmallIcon(android.R.drawable.ic_dialog_map)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setContentIntent(intent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(System.currentTimeMillis().toInt(), notification)
+    }
+
+    private data class NtfyEvent(
+        val event: String? = null,
+        val title: String? = null,
+        val message: String? = null
+    )
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, TrackerApp.CHANNEL_LOCATION)

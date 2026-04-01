@@ -42,5 +42,4 @@ class ApiClient(private val sessionManager: SessionManager) {
     val locations: LocationApi by lazy { retrofit.create(LocationApi::class.java) }
     val circles: CircleApi by lazy { retrofit.create(CircleApi::class.java) }
     val geofences: GeofenceApi by lazy { retrofit.create(GeofenceApi::class.java) }
-    val fcm: FcmApi by lazy { retrofit.create(FcmApi::class.java) }
 }
