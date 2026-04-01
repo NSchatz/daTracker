@@ -47,11 +47,6 @@ type GeoEvaluator interface {
 	GetGeofences(ctx context.Context, circleID uuid.UUID) ([]model.Geofence, error)
 }
 
-type FCMTokenStore interface {
-	UpsertFCMToken(ctx context.Context, userID uuid.UUID, token string) error
-	GetFCMTokensForCircle(ctx context.Context, circleID uuid.UUID, excludeUserID uuid.UUID) ([]string, error)
-}
-
 type Server struct {
 	router     chi.Router
 	auth       *auth.Auth
@@ -63,10 +58,9 @@ type Server struct {
 	geoTracker *geo.Tracker
 	notifier   *notify.Notifier
 	geoEval    GeoEvaluator
-	fcmTokens  FCMTokenStore
 }
 
-func NewServer(a *auth.Auth, store AuthStore, circles CircleStore, locations LocationStore, geofences GeofenceStore, hub *ws.Hub, geoTracker *geo.Tracker, notifier *notify.Notifier, geoEval GeoEvaluator, fcmTokens FCMTokenStore) *Server {
+func NewServer(a *auth.Auth, store AuthStore, circles CircleStore, locations LocationStore, geofences GeofenceStore, hub *ws.Hub, geoTracker *geo.Tracker, notifier *notify.Notifier, geoEval GeoEvaluator) *Server {
 	s := &Server{
 		router:     chi.NewRouter(),
 		auth:       a,
@@ -78,7 +72,6 @@ func NewServer(a *auth.Auth, store AuthStore, circles CircleStore, locations Loc
 		geoTracker: geoTracker,
 		notifier:   notifier,
 		geoEval:    geoEval,
-		fcmTokens:  fcmTokens,
 	}
 
 	s.router.Use(middleware.Logger)
@@ -108,7 +101,6 @@ func NewServer(a *auth.Auth, store AuthStore, circles CircleStore, locations Loc
 		r.Delete("/geofences/{id}", s.handleDeleteGeofence)
 
 		r.Get("/ws", s.handleWebSocket)
-		r.Post("/fcm-token", s.handleRegisterFCMToken)
 	})
 
 	return s

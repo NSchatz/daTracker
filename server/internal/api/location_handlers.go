@@ -113,26 +113,30 @@ func (s *Server) processLocationUpdate(userID uuid.UUID, loc model.Location) {
 			geoMap[g.ID] = g.Name
 		}
 
-		// Get FCM tokens for other members
-		if s.fcmTokens == nil {
-			continue
-		}
-		tokens, err := s.fcmTokens.GetFCMTokensForCircle(ctx, circle.ID, userID)
+		// Get member user IDs for notifications (excluding the current user)
+		members, err := s.circles.GetMembers(ctx, circle.ID)
 		if err != nil {
-			log.Printf("processLocationUpdate: get FCM tokens for circle %s: %v", circle.ID, err)
+			log.Printf("processLocationUpdate: get members for circle %s: %v", circle.ID, err)
 			continue
 		}
-		if len(tokens) == 0 {
+
+		var memberIDs []string
+		for _, m := range members {
+			if m.UserID != userID {
+				memberIDs = append(memberIDs, m.UserID.String())
+			}
+		}
+		if len(memberIDs) == 0 {
 			continue
 		}
 
 		for _, geoID := range entered {
 			name := geoMap[geoID]
-			s.notifier.GeofenceEnter(ctx, user.DisplayName, name, tokens)
+			s.notifier.GeofenceEnter(ctx, user.DisplayName, name, memberIDs)
 		}
 		for _, geoID := range left {
 			name := geoMap[geoID]
-			s.notifier.GeofenceLeave(ctx, user.DisplayName, name, tokens)
+			s.notifier.GeofenceLeave(ctx, user.DisplayName, name, memberIDs)
 		}
 	}
 }

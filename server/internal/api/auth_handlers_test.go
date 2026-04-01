@@ -73,7 +73,7 @@ func TestRegisterAndLogin(t *testing.T) {
 	circleStore.byID[circleID] = circleStore.circles["abc123"]
 
 	a := auth.New("test-secret")
-	srv := NewServer(a, store, circleStore, nil, nil, nil, nil, nil, nil, nil)
+	srv := NewServer(a, store, circleStore, nil, nil, nil, nil, nil, nil)
 
 	// Register
 	regBody, _ := json.Marshal(map[string]string{
