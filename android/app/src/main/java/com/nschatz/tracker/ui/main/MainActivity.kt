@@ -143,7 +143,9 @@ class MainActivity : AppCompatActivity() {
                         session.activeCircleId = circles.first().id
                     }
                 }
-            } catch (e: Exception) { /* retry next launch */ }
+            } catch (e: Exception) {
+                Log.w("MainActivity", "initActiveCircle failed, will retry next launch", e)
+            }
         }
     }
 }
