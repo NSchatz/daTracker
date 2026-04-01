@@ -1,6 +1,7 @@
 FROM golang:1.22-alpine AS builder
 WORKDIR /build
-COPY server/go.mod server/go.su[m] ./
+COPY server/go.mod ./
+COPY server/go.sum* ./
 RUN go mod download
 COPY server/ .
 RUN CGO_ENABLED=0 go build -o /tracker ./cmd/tracker
